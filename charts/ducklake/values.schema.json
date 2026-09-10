@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "storage": {
+      "type": "object",
+      "properties": {
+        "bucket": {
+          "type": "string",
+          "minLength": 3
+        },
+        "prefix": {
+          "type": "string"
+        },
+        "region": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "bucket",
+        "prefix",
+        "region"
+      ]
+    },
+    "maintenance": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "schedule": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "postgresql": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "rustfs": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,9 @@
+# Uses the bundled PostgreSQL and RustFS services.
+postgresql:
+  persistence:
+    enabled: false
+rustfs:
+  persistence:
+    enabled: false
+maintenance:
+  schedule: "0 2 * * *"

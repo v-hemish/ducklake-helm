@@ -1,0 +1,21 @@
+apiVersion: v2
+name: ducklake
+description: One-command DuckLake quick-start for Kubernetes with PostgreSQL catalog and S3-compatible storage.
+type: application
+version: 0.1.0
+appVersion: "1.0"
+kubeVersion: ">=1.25.0-0"
+home: https://github.com/v-hemish/ducklake-helm
+sources:
+  - https://github.com/v-hemish/ducklake-helm
+keywords:
+  - ducklake
+  - duckdb
+  - lakehouse
+  - kubernetes
+  - helm
+  - parquet
+  - postgres
+  - s3
+annotations:
+  artifacthub.io/license: Apache-2.0

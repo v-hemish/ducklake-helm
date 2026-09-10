@@ -1,0 +1,17 @@
+{{- if and .Values.postgresql.enabled (not .Values.catalog.external.enabled) }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ducklake.fullname" . }}-postgresql
+  labels:
+    {{- include "ducklake.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+  selector:
+    {{- include "ducklake.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: postgresql
+{{- end }}

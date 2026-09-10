@@ -1,0 +1,50 @@
+{{- if .Values.rustfs.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "ducklake.fullname" . }}-bucket-init
+  labels:
+    {{- include "ducklake.labels" . | nindent 4 }}
+    app.kubernetes.io/component: bucket-init
+spec:
+  backoffLimit: 8
+  ttlSecondsAfterFinished: 300
+  template:
+    metadata:
+      labels:
+        {{- include "ducklake.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: bucket-init
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: create-bucket
+          image: "{{ .Values.bucketInit.image.repository }}:{{ .Values.bucketInit.image.tag }}"
+          imagePullPolicy: {{ .Values.bucketInit.image.pullPolicy }}
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              endpoint="http://{{ include "ducklake.s3Endpoint" . }}"
+              echo "Waiting for S3 endpoint at ${endpoint}..."
+              until aws --endpoint-url "${endpoint}" s3api list-buckets >/dev/null 2>&1; do sleep 2; done
+              if aws --endpoint-url "${endpoint}" s3api head-bucket --bucket "$S3_BUCKET" >/dev/null 2>&1; then
+                echo "Bucket ${S3_BUCKET} already exists."
+              else
+                aws --endpoint-url "${endpoint}" s3api create-bucket --bucket "$S3_BUCKET"
+                echo "Created bucket ${S3_BUCKET}."
+              fi
+          env:
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ducklake.fullname" . }}-rustfs
+                  key: access-key
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ducklake.fullname" . }}-rustfs
+                  key: secret-key
+            - name: AWS_DEFAULT_REGION
+              value: {{ .Values.storage.region | quote }}
+            - name: S3_BUCKET
+              value: {{ .Values.storage.bucket | quote }}
+{{- end }}

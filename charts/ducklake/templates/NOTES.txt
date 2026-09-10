@@ -1,0 +1,18 @@
+DuckLake quick-start has been installed.
+
+1. Watch the components come up:
+   kubectl get pods -n {{ .Release.Namespace }} -w
+
+2. Check bootstrap output:
+   kubectl logs job/{{ include "ducklake.fullname" . }}-bootstrap -n {{ .Release.Namespace }}
+
+3. Open a DuckDB shell already connected to DuckLake:
+   kubectl exec -it deploy/{{ include "ducklake.fullname" . }}-toolbox -n {{ .Release.Namespace }} -- duckdb -init /opt/ducklake/connect.sql
+
+4. Run the chart smoke test:
+   helm test {{ .Release.Name }} -n {{ .Release.Namespace }}
+
+{{- if .Values.rustfs.enabled }}
+Bundled RustFS is intended for evaluation. Persistence is {{ ternary "enabled" "disabled" .Values.rustfs.persistence.enabled }}.
+For production, use external object storage and an external PostgreSQL catalog.
+{{- end }}

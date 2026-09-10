@@ -1,0 +1,20 @@
+{{- if .Values.rustfs.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ducklake.fullname" . }}-rustfs
+  labels:
+    {{- include "ducklake.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: s3
+      port: 9000
+      targetPort: s3
+    - name: console
+      port: 9001
+      targetPort: console
+  selector:
+    {{- include "ducklake.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: rustfs
+{{- end }}

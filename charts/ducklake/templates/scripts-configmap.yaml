@@ -1,0 +1,57 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ducklake.fullname" . }}-scripts
+  labels:
+    {{- include "ducklake.labels" . | nindent 4 }}
+data:
+  connect.sql: |
+    INSTALL ducklake;
+    INSTALL postgres;
+    INSTALL httpfs;
+
+    CREATE OR REPLACE SECRET ducklake_s3 (
+      TYPE s3,
+      PROVIDER config,
+      KEY_ID getenv('S3_ACCESS_KEY'),
+      SECRET getenv('S3_SECRET_KEY'),
+      REGION getenv('S3_REGION'),
+      ENDPOINT getenv('S3_ENDPOINT'),
+      URL_STYLE getenv('S3_URL_STYLE'),
+      USE_SSL CAST(getenv('S3_USE_SSL') AS BOOLEAN)
+    );
+
+    CREATE OR REPLACE SECRET ducklake_postgres (
+      TYPE postgres,
+      HOST getenv('PGHOST'),
+      PORT CAST(getenv('PGPORT') AS INTEGER),
+      DATABASE getenv('PGDATABASE'),
+      USER getenv('PGUSER'),
+      PASSWORD getenv('PGPASSWORD')
+    );
+
+    CREATE OR REPLACE SECRET ducklake_config (
+      TYPE ducklake,
+      METADATA_PATH '',
+      DATA_PATH getenv('DUCKLAKE_DATA_PATH'),
+      METADATA_PARAMETERS MAP {'TYPE': 'postgres', 'SECRET': 'ducklake_postgres'}
+    );
+
+    ATTACH 'ducklake:ducklake_config' AS lake;
+    USE lake;
+
+  bootstrap.sql: |
+    .read /opt/ducklake/connect.sql
+    CREATE TABLE IF NOT EXISTS helm_smoke_test (
+      id INTEGER,
+      message VARCHAR,
+      created_at TIMESTAMP
+    );
+    INSERT INTO helm_smoke_test
+      SELECT 1, 'DuckLake on Kubernetes is ready', current_timestamp
+      WHERE NOT EXISTS (SELECT 1 FROM helm_smoke_test WHERE id = 1);
+    SELECT * FROM helm_smoke_test ORDER BY id;
+
+  maintenance.sql: |
+    .read /opt/ducklake/connect.sql
+    CHECKPOINT;

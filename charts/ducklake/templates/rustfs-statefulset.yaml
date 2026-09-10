@@ -1,0 +1,104 @@
+{{- if .Values.rustfs.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "ducklake.fullname" . }}-rustfs
+  labels:
+    {{- include "ducklake.labels" . | nindent 4 }}
+    app.kubernetes.io/component: rustfs
+spec:
+  serviceName: {{ include "ducklake.fullname" . }}-rustfs
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "ducklake.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: rustfs
+  template:
+    metadata:
+      labels:
+        {{- include "ducklake.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: rustfs
+    spec:
+      serviceAccountName: {{ include "ducklake.serviceAccountName" . }}
+      securityContext:
+        fsGroup: 10001
+      containers:
+        - name: rustfs
+          image: "{{ .Values.rustfs.image.repository }}:{{ .Values.rustfs.image.tag }}"
+          imagePullPolicy: {{ .Values.rustfs.image.pullPolicy }}
+          args: ["/data"]
+          ports:
+            - name: s3
+              containerPort: 9000
+            - name: console
+              containerPort: 9001
+          env:
+            - name: RUSTFS_ADDRESS
+              value: "0.0.0.0:9000"
+            - name: RUSTFS_CONSOLE_ADDRESS
+              value: "0.0.0.0:9001"
+            - name: RUSTFS_CONSOLE_ENABLE
+              value: "true"
+            - name: RUSTFS_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ducklake.fullname" . }}-rustfs
+                  key: access-key
+            - name: RUSTFS_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ducklake.fullname" . }}-rustfs
+                  key: secret-key
+            - name: RUSTFS_RPC_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ducklake.fullname" . }}-rustfs
+                  key: rpc-secret
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: s3
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: s3
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+            {{- toYaml .Values.rustfs.resources | nindent 12 }}
+      {{- if not .Values.rustfs.persistence.enabled }}
+      volumes:
+        - name: data
+          emptyDir: {}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  {{- if .Values.rustfs.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- if .Values.rustfs.persistence.storageClass }}
+        storageClassName: {{ .Values.rustfs.persistence.storageClass | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.rustfs.persistence.size }}
+  {{- end }}
+{{- end }}

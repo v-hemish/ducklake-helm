@@ -1,0 +1,14 @@
+{{- if and (not .Values.catalog.external.enabled) (not .Values.postgresql.enabled) -}}
+{{- fail "postgresql.enabled must be true unless catalog.external.enabled=true" -}}
+{{- end -}}
+{{- if .Values.catalog.external.enabled -}}
+{{- $_ := required "catalog.external.host is required when catalog.external.enabled=true" .Values.catalog.external.host -}}
+{{- $_ := required "catalog.external.existingSecret is required when catalog.external.enabled=true" .Values.catalog.external.existingSecret -}}
+{{- end -}}
+{{- if not .Values.rustfs.enabled -}}
+{{- $_ := required "externalS3.endpoint is required when rustfs.enabled=false" .Values.externalS3.endpoint -}}
+{{- if not .Values.externalS3.existingSecret -}}
+{{- $_ := required "externalS3.accessKey is required when no existingSecret is supplied" .Values.externalS3.accessKey -}}
+{{- $_ := required "externalS3.secretKey is required when no existingSecret is supplied" .Values.externalS3.secretKey -}}
+{{- end -}}
+{{- end -}}

@@ -1,0 +1,58 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "ducklake.fullname" . }}-test"
+  labels:
+    {{- include "ducklake.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  restartPolicy: Never
+  containers:
+    - name: smoke-test
+      image: "{{ .Values.duckdb.image.repository }}:{{ .Values.duckdb.image.tag }}"
+      command: ["duckdb", "-init", "/opt/ducklake/connect.sql", "-c", "SELECT * FROM helm_smoke_test;"]
+      env:
+
+            - name: PGHOST
+              value: {{ include "ducklake.postgresHost" . | quote }}
+            - name: PGPORT
+              value: {{ ternary .Values.catalog.external.port 5432 .Values.catalog.external.enabled | quote }}
+            - name: PGDATABASE
+              value: {{ ternary .Values.catalog.external.database .Values.postgresql.auth.database .Values.catalog.external.enabled | quote }}
+            - name: PGUSER
+              value: {{ ternary .Values.catalog.external.username .Values.postgresql.auth.username .Values.catalog.external.enabled | quote }}
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ducklake.postgresSecretName" . }}
+                  key: {{ ternary .Values.catalog.external.passwordSecretKey "password" .Values.catalog.external.enabled }}
+            - name: S3_ENDPOINT
+              value: {{ include "ducklake.s3Endpoint" . | quote }}
+            - name: S3_USE_SSL
+              value: {{ include "ducklake.s3UseSSL" . | quote }}
+            - name: S3_URL_STYLE
+              value: {{ include "ducklake.s3URLStyle" . | quote }}
+            - name: S3_REGION
+              value: {{ .Values.storage.region | quote }}
+            - name: S3_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ducklake.s3SecretName" . }}
+                  key: {{ include "ducklake.s3AccessKeyField" . }}
+            - name: S3_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ducklake.s3SecretName" . }}
+                  key: {{ include "ducklake.s3SecretKeyField" . }}
+            - name: DUCKLAKE_DATA_PATH
+              value: {{ include "ducklake.dataPath" . | trim | quote }}
+
+      volumeMounts:
+        - name: scripts
+          mountPath: /opt/ducklake
+          readOnly: true
+  volumes:
+    - name: scripts
+      configMap:
+        name: {{ include "ducklake.fullname" . }}-scripts

@@ -1,0 +1,103 @@
+# DuckLake Helm chart v0.1 defaults are designed for evaluation on a Kubernetes
+# cluster with no external services. Persistence is deliberately off by default.
+# For production, use an external PostgreSQL catalog and external object storage.
+
+bucketInit:
+  image:
+    repository: public.ecr.aws/aws-cli/aws-cli
+    tag: "2.36.42"
+    pullPolicy: IfNotPresent
+
+duckdb:
+  image:
+    repository: duckdb/duckdb
+    tag: "1.5.5"
+    pullPolicy: IfNotPresent
+
+postgresql:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "16.15-alpine"
+    pullPolicy: IfNotPresent
+  auth:
+    username: ducklake
+    database: ducklake_catalog
+    # Leave blank to generate a random password on first install.
+    password: ""
+  persistence:
+    enabled: false
+    size: 2Gi
+    storageClass: ""
+  resources: {}
+
+# Bundled S3-compatible object storage for quick-start/evaluation only.
+# RustFS is currently beta. For production, set rustfs.enabled=false and configure externalS3.
+rustfs:
+  enabled: true
+  image:
+    repository: rustfs/rustfs
+    tag: "1.0.0-beta.12"
+    pullPolicy: IfNotPresent
+  auth:
+    # Leave blank to generate credentials on first install.
+    accessKey: ""
+    secretKey: ""
+  persistence:
+    enabled: false
+    size: 5Gi
+    storageClass: ""
+  resources: {}
+
+storage:
+  bucket: ducklake
+  prefix: data
+  region: us-east-1
+
+# Used when rustfs.enabled=false.
+externalS3:
+  endpoint: s3.amazonaws.com
+  useSSL: true
+  urlStyle: vhost
+  accessKey: ""
+  secretKey: ""
+  existingSecret: ""
+  accessKeySecretKey: access-key
+  secretKeySecretKey: secret-key
+
+catalog:
+  # External catalog mode is planned for the next milestone. Keeping these keys in
+  # the values contract now avoids breaking users when it is added.
+  external:
+    enabled: false
+    host: ""
+    port: 5432
+    database: ducklake_catalog
+    username: ducklake
+    existingSecret: ""
+    passwordSecretKey: password
+
+toolbox:
+  enabled: true
+  replicas: 1
+  resources: {}
+
+bootstrap:
+  enabled: true
+
+maintenance:
+  enabled: true
+  schedule: "0 2 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+
+serviceAccount:
+  create: true
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}

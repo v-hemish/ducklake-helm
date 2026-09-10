@@ -1,0 +1,109 @@
+{{- if .Values.bootstrap.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "ducklake.fullname" . }}-bootstrap
+  labels:
+    {{- include "ducklake.labels" . | nindent 4 }}
+    app.kubernetes.io/component: bootstrap
+spec:
+  backoffLimit: 8
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        {{- include "ducklake.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: bootstrap
+    spec:
+      serviceAccountName: {{ include "ducklake.serviceAccountName" . }}
+      restartPolicy: OnFailure
+      initContainers:
+        - name: wait-postgresql
+          image: "{{ .Values.postgresql.image.repository }}:{{ .Values.postgresql.image.tag }}"
+          command: ["sh", "-ec"]
+          args:
+            - until pg_isready -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE"; do sleep 2; done
+          env:
+            - name: PGHOST
+              value: {{ include "ducklake.postgresHost" . | quote }}
+            - name: PGPORT
+              value: {{ ternary .Values.catalog.external.port 5432 .Values.catalog.external.enabled | quote }}
+            - name: PGDATABASE
+              value: {{ ternary .Values.catalog.external.database .Values.postgresql.auth.database .Values.catalog.external.enabled | quote }}
+            - name: PGUSER
+              value: {{ ternary .Values.catalog.external.username .Values.postgresql.auth.username .Values.catalog.external.enabled | quote }}
+        {{- if .Values.rustfs.enabled }}
+        - name: wait-bucket
+          image: "{{ .Values.bucketInit.image.repository }}:{{ .Values.bucketInit.image.tag }}"
+          imagePullPolicy: {{ .Values.bucketInit.image.pullPolicy }}
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              endpoint="http://{{ include "ducklake.s3Endpoint" . }}"
+              until aws --endpoint-url "${endpoint}" s3api head-bucket --bucket "$S3_BUCKET" >/dev/null 2>&1; do sleep 2; done
+          env:
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ducklake.fullname" . }}-rustfs
+                  key: access-key
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ducklake.fullname" . }}-rustfs
+                  key: secret-key
+            - name: AWS_DEFAULT_REGION
+              value: {{ .Values.storage.region | quote }}
+            - name: S3_BUCKET
+              value: {{ .Values.storage.bucket | quote }}
+        {{- end }}
+      containers:
+        - name: ducklake-bootstrap
+          image: "{{ .Values.duckdb.image.repository }}:{{ .Values.duckdb.image.tag }}"
+          imagePullPolicy: {{ .Values.duckdb.image.pullPolicy }}
+          command: ["duckdb", "-init", "/opt/ducklake/bootstrap.sql", "-c", ".quit"]
+          env:
+
+            - name: PGHOST
+              value: {{ include "ducklake.postgresHost" . | quote }}
+            - name: PGPORT
+              value: {{ ternary .Values.catalog.external.port 5432 .Values.catalog.external.enabled | quote }}
+            - name: PGDATABASE
+              value: {{ ternary .Values.catalog.external.database .Values.postgresql.auth.database .Values.catalog.external.enabled | quote }}
+            - name: PGUSER
+              value: {{ ternary .Values.catalog.external.username .Values.postgresql.auth.username .Values.catalog.external.enabled | quote }}
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ducklake.postgresSecretName" . }}
+                  key: {{ ternary .Values.catalog.external.passwordSecretKey "password" .Values.catalog.external.enabled }}
+            - name: S3_ENDPOINT
+              value: {{ include "ducklake.s3Endpoint" . | quote }}
+            - name: S3_USE_SSL
+              value: {{ include "ducklake.s3UseSSL" . | quote }}
+            - name: S3_URL_STYLE
+              value: {{ include "ducklake.s3URLStyle" . | quote }}
+            - name: S3_REGION
+              value: {{ .Values.storage.region | quote }}
+            - name: S3_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ducklake.s3SecretName" . }}
+                  key: {{ include "ducklake.s3AccessKeyField" . }}
+            - name: S3_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ducklake.s3SecretName" . }}
+                  key: {{ include "ducklake.s3SecretKeyField" . }}
+            - name: DUCKLAKE_DATA_PATH
+              value: {{ include "ducklake.dataPath" . | trim | quote }}
+
+          volumeMounts:
+            - name: scripts
+              mountPath: /opt/ducklake
+              readOnly: true
+      volumes:
+        - name: scripts
+          configMap:
+            name: {{ include "ducklake.fullname" . }}-scripts
+{{- end }}

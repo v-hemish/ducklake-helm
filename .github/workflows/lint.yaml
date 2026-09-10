@@ -1,0 +1,16 @@
+name: lint
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  helm-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - name: Lint chart
+        run: helm lint charts/ducklake
+      - name: Render chart
+        run: helm template test charts/ducklake > /tmp/rendered.yaml
