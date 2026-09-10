@@ -65,33 +65,6 @@ The defaults prioritize a zero-dependency Kubernetes demo:
 
 Do not treat the defaults as production settings.
 
-## Roadmap
-
-### v0.1 — zero-to-DuckLake
-- [x] PostgreSQL catalog
-- [x] bundled S3-compatible quick-start storage
-- [x] bucket initialization
-- [x] DuckLake bootstrap Job
-- [x] interactive DuckDB toolbox
-- [x] scheduled `CHECKPOINT`
-- [x] Helm smoke test
-- [ ] run successfully in Kind/minikube
-- [ ] GitHub Actions Kind integration test
-
-### v0.2 — bring your own infrastructure
-- [x] external PostgreSQL connection + existing Secret
-- [x] external S3-compatible endpoint + Secret
-- [x] existing Kubernetes Secrets
-- [ ] persistence examples
-
-### v0.3 — production-shaped cloud setup
-- [ ] AWS workload identity / IRSA
-- [ ] GCS
-- [ ] Azure Blob
-- [ ] network policies
-- [ ] pod security hardening
-- [ ] monitoring/metrics guidance
-
 ## License
 
 Apache-2.0.
