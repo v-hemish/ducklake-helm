@@ -1,70 +1,119 @@
 # ducklake-helm 🦆
 
-**One-command DuckLake quick-start for Kubernetes.**
+**Run DuckLake on Kubernetes with a single Helm install.**
 
-This project packages a usable DuckLake architecture behind a Helm install: a PostgreSQL catalog, S3-compatible storage, DuckLake bootstrap, an interactive DuckDB toolbox, and scheduled DuckLake maintenance.
+`ducklake-helm` packages the core components needed to run DuckLake on Kubernetes.
 
-> **Status:** v0.1 development. The bundled PostgreSQL + RustFS path is for evaluation. Production guidance will use external managed/operated PostgreSQL and object storage.
+Instead of manually configuring a catalog database, object storage, DuckLake initialization, and maintenance jobs, the chart wires them together for you.
 
-## Target experience
+## Install
 
 ```bash
-helm install my-ducklake ./charts/ducklake
-kubectl get pods
-kubectl logs job/my-ducklake-ducklake-bootstrap
-kubectl exec -it deploy/my-ducklake-ducklake-toolbox -- duckdb -init /opt/ducklake/connect.sql
+helm install ducklake   oci://ghcr.io/v-hemish/charts/ducklake   --version 0.1.0   --namespace ducklake   --create-namespace
+```
+
+Check the deployment:
+
+```bash
+kubectl get pods -n ducklake
+```
+
+Once the components are ready, run the Helm smoke test:
+
+```bash
+helm test ducklake -n ducklake
+```
+
+## Query DuckLake
+
+Open the DuckDB toolbox:
+
+```bash
+kubectl exec -it deploy/ducklake-toolbox   -n ducklake   -- /duckdb -init /opt/ducklake/connect.sql
 ```
 
 Inside DuckDB:
 
 ```sql
 SHOW TABLES;
-SELECT * FROM helm_smoke_test;
 
+SELECT * FROM helm_smoke_test;
+```
+
+Create and query your own table:
+
+```sql
 CREATE TABLE events AS
-SELECT 1 AS id, 'hello from kubernetes' AS message;
+SELECT
+    1 AS id,
+    'hello from kubernetes' AS message;
 
 SELECT * FROM events;
 ```
 
-## What v0.1 deploys
+## Architecture
 
 ```text
                  Kubernetes
                      │
        ┌─────────────┴─────────────┐
        │                           │
- PostgreSQL catalog          RustFS (S3 API)
+    PostgreSQL                  RustFS
+      Catalog               S3-compatible
+                               Storage
        │                           │
        └─────────────┬─────────────┘
                      │
-                DuckLake
+                  DuckLake
                      │
        ┌─────────────┴─────────────┐
        │                           │
- DuckDB toolbox            CHECKPOINT CronJob
+  DuckDB Toolbox           Maintenance CronJob
 ```
 
-DuckLake metadata lives in PostgreSQL. Parquet data lives under the configured `s3://<bucket>/<prefix>/` path.
+DuckLake metadata is stored in PostgreSQL.
 
-## Why a CronJob?
+Table data is stored as Parquet files in S3-compatible object storage.
 
-DuckLake recommends periodic maintenance for workloads that accumulate small files, old snapshots, delete files, and orphaned files. `CHECKPOINT` bundles DuckLake's maintenance operations, so Kubernetes CronJob is a natural operational primitive for it.
+## What gets deployed
 
-## Defaults
+The default installation includes:
 
-The defaults prioritize a zero-dependency Kubernetes demo:
+- PostgreSQL 16.x
+- RustFS S3-compatible object storage
+- S3 bucket initialization
+- DuckLake bootstrap Job
+- DuckDB toolbox Deployment
+- DuckLake smoke-test table
+- Helm smoke test
+- scheduled DuckLake `CHECKPOINT` CronJob
 
-- PostgreSQL 16.x is bundled.
-- RustFS is bundled as an S3-compatible evaluation store.
-- Persistence is **off** by default so the chart does not require a StorageClass.
-- Credentials are generated when values are left blank.
-- A bootstrap Job initializes DuckLake and inserts a smoke-test row.
-- A toolbox Deployment gives you an interactive DuckDB client.
-- A daily `CHECKPOINT` CronJob is enabled.
+## Maintenance
 
-Do not treat the defaults as production settings.
+DuckLake provides:
+
+```sql
+CHECKPOINT;
+```
+
+to run maintenance operations.
+
+The chart schedules this using a Kubernetes CronJob. The schedule can be configured through `values.yaml`.
+
+## Status
+
+The current `v0.1.0` release is designed as a simple DuckLake quick-start for Kubernetes.
+
+The default PostgreSQL + RustFS configuration is intended for **development and evaluation**. Persistence is disabled by default.
+
+For production environments, use appropriately operated PostgreSQL and object storage.
+
+## Uninstall
+
+```bash
+helm uninstall ducklake -n ducklake
+```
 
 ## License
 
-Apache-2.0.
+Apache-2.0
